@@ -132,7 +132,9 @@ export class ResumableVerificationService {
         ? { ...claim, steps: [...claim.steps, { id: step.id, adapter: step.adapter, operation: step.operation, result: result.result, evidenceIds: [result.evidence.id], message: result.message }], result: undefined }
         : claim);
       const recalculated = claims.map((claim) => ({ ...claim, result: evaluateClaim(claim) as Required<ClaimExecution>['result'] })) as Array<Required<ClaimExecution>>;
-      request.status = 'SATISFIED';
+      const evidenceRequests = current.snapshot.evidenceRequests.map((item) => item.id === request.id
+        ? { ...item, status: 'SATISFIED' as const }
+        : item);
       const recalculatedCoverage = (current.snapshot.coverage ?? []).map((term) => term.stepIds.includes(step.id)
         ? { ...term, evidenceEstablished: [...new Set([...term.evidenceEstablished, result.evidence.id])] }
         : term);
@@ -143,7 +145,7 @@ export class ResumableVerificationService {
       const provenance = this.provenance(current.input, resolvedPlan, verdict);
       result.evidence.provenance = provenance;
       freezeEvidence(result.evidence);
-      const snapshot = this.snapshot(current.input, resolvedPlan, recalculated, ledger, current.snapshot.evidenceRequests, recalculatedCoverage, provenance, acceptanceLedger);
+      const snapshot = this.snapshot(current.input, resolvedPlan, recalculated, ledger, evidenceRequests, recalculatedCoverage, provenance, acceptanceLedger);
       snapshot.caseId = caseId;
       return { ...current, version: current.version + 1, plan: resolvedPlan, snapshot, acceptanceLedger };
     });
