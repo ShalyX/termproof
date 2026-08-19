@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title description">
+  <title id="title">Termproof app icon</title>
+  <desc id="description">The Condition Cut symbol on an ink field.</desc>
+  <rect width="64" height="64" rx="14" fill="#171715"/>
+  <path d="M17.858 45.435A19 19 0 1 1 17.858 18.565" fill="none" stroke="#F5F1E8" stroke-width="6" stroke-linecap="butt"/>
+  <path d="m16.2 19.3-5 5 4 4 5-5Z" fill="#A9433B"/>
+  <circle cx="32" cy="32" r="7.5" fill="#A9433B"/>
+</svg>

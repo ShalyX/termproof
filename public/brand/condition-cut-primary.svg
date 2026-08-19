@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 202 64" role="img" aria-labelledby="title description">
+  <title id="title">Condition Cut primary mark</title>
+  <desc id="description">An unresolved cut ring moves through three evidence points into an earned resolved state.</desc>
+  <path d="M47.556 16.444A22 22 0 1 0 47.556 47.556" fill="none" stroke="#A69E91" stroke-width="7" stroke-linecap="butt"/>
+  <path d="m44.8 48.6 8.2-8.2-4.6-4.6-8.2 8.2Z" fill="#7A2723"/>
+  <circle cx="78" cy="32" r="4.5" fill="#A69E91"/>
+  <circle cx="100" cy="32" r="4.5" fill="#7A2723"/>
+  <circle cx="122" cy="32" r="4.5" fill="#50575A"/>
+  <path d="M154.444 47.556A22 22 0 1 1 154.444 16.444" fill="none" stroke="#171715" stroke-width="7" stroke-linecap="butt"/>
+  <circle cx="170" cy="32" r="8.5" fill="#7A2723"/>
+</svg>

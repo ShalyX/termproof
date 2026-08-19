@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 202 64" role="img" aria-labelledby="title description">
+  <title id="title">Condition Cut inverse mark</title>
+  <desc id="description">The Termproof evidence-state mark for use on ink backgrounds.</desc>
+  <path d="M47.556 16.444A22 22 0 1 0 47.556 47.556" fill="none" stroke="#D8D1C5" stroke-width="7" stroke-linecap="butt"/>
+  <path d="m44.8 48.6 8.2-8.2-4.6-4.6-8.2 8.2Z" fill="#A9433B"/>
+  <circle cx="78" cy="32" r="4.5" fill="#D8D1C5"/>
+  <circle cx="100" cy="32" r="4.5" fill="#A9433B"/>
+  <circle cx="122" cy="32" r="4.5" fill="#8E9699"/>
+  <path d="M154.444 47.556A22 22 0 1 1 154.444 16.444" fill="none" stroke="#F5F1E8" stroke-width="7" stroke-linecap="butt"/>
+  <circle cx="170" cy="32" r="8.5" fill="#A9433B"/>
+</svg>
