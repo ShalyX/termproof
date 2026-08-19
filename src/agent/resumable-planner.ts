@@ -18,7 +18,11 @@ interface DeferredHttpRoute {
  * the normal HTTP adapter during resume.
  */
 export class ResumablePlanner implements MilestonePlanner {
-  constructor(private readonly inner: MilestonePlanner) {}
+  private readonly inner: MilestonePlanner;
+
+  constructor(inner: MilestonePlanner) {
+    this.inner = inner;
+  }
 
   preflight(): void {
     this.inner.preflight?.();
