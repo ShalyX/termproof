@@ -65,7 +65,7 @@ test('additional evidence cannot override a genuine deterministic failure', asyn
   const initial = await service.start({ milestone: 'Repository exists', githubRepository: 'https://github.com/acme/project' });
   assert.equal(initial.verdict, 'FAILED');
   await assert.rejects(() => service.supplyEvidence(initial.caseId, { kind: 'http_source', claimId: 'claim-http', stepId: 'step-http', url: 'https://example.com/' }), /no open evidence request/i);
-  const unchanged = service.get(initial.caseId);
+  const unchanged = await service.get(initial.caseId);
   assert.equal(unchanged.verdict, 'FAILED');
   assert.equal(unchanged.evidenceLedger.length, 2);
 });
