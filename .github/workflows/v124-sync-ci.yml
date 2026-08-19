@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - v12.4-durable-runtime-sync
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
@@ -24,6 +27,7 @@ jobs:
       - name: Refresh lockfile for restored runtime dependencies
         run: npm install --package-lock-only --ignore-scripts
       - name: Commit lockfile if needed
+        if: github.event_name == 'push'
         shell: bash
         run: |
           if ! git diff --quiet -- package-lock.json; then
