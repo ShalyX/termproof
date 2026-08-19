@@ -1,0 +1,25 @@
+name: Preview v12.4 parity CI
+
+on:
+  push:
+    branches:
+      - preview/v12.4-parity-proof-connected
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run lint
+      - run: npm run validate:artifact
+      - run: npm run vercel-build
+      - run: npm audit --omit=dev --audit-level=high
