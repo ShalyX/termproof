@@ -1,7 +1,0 @@
-validated_commit=db411ff992467a0e817ab9d97ae28c8ec9723513
-npm_ci=0
-test_full=0
-lint=0
-artifact=0
-vercel_build=0
-prod_audit_high=0
