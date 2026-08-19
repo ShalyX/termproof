@@ -1,0 +1,129 @@
+validated_commit=f57fa5c996043ca7880a9aa094d39171dbbaa401
+npm_ci=0
+test_full=1
+lint=0
+artifact=0
+vercel_build=0
+prod_audit_high=0
+
+--- test_full failure tail ---
+✔ Gemini malformed structured output is retried once, then fails over to DeepSeek (3.036538ms)
+✔ Gemini canonical-schema output is retried once, then fails over only for structured invalidity (4.218865ms)
+✔ Gemini canonical route validation retries once, then fails over to DeepSeek (2.986927ms)
+✔ a semantically incomplete Gemini plan does not provider-shop into DeepSeek (4.702742ms)
+✔ no configured provider returns PLANNER_UNAVAILABLE before any network call (0.403077ms)
+✔ non-retryable Gemini failures fail closed without provider switching and retain only a safe reason (3.956824ms)
+✔ DeepSeek canonical schema violations fail closed and cannot produce a verdict (1.855006ms)
+✔ fallback canonical failure preserves the bounded primary failure reason without provider data (2.723475ms)
+✔ DeepSeek output omitting a required acceptance term is rejected before coverage can produce VERIFIED (1.054871ms)
+✔ provider failover changes only planner provenance, not deterministic adapter/policy results (8.992317ms)
+✔ request IDs accept safe caller values and replace control characters (1.895439ms)
+✔ rate limiter denies excess requests in a bounded window (0.375529ms)
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+file:///home/runner/work/termproof/termproof/src/agent/resumable-planner.ts:21
+export class ResumablePlanner implements MilestonePlanner {
+  constructor(private readonly inner: MilestonePlanner) {}
+                               ^^^^^^^^^^^^^^^^^^^^^^^
+
+SyntaxError [ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX]: TypeScript parameter property is not supported in strip-only mode
+    at parseTypeScript (node:internal/modules/typescript:68:40)
+    at processTypeScriptCode (node:internal/modules/typescript:146:42)
+    at stripTypeScriptModuleTypes (node:internal/modules/typescript:215:22)
+    at ModuleLoader.<anonymous> (node:internal/modules/esm/translators:680:29)
+    at #translate (node:internal/modules/esm/loader:434:20)
+    at afterLoad (node:internal/modules/esm/loader:502:29)
+    at ModuleLoader.loadAndTranslate (node:internal/modules/esm/loader:507:12)
+    at #getOrCreateModuleJobAfterResolve (node:internal/modules/esm/loader:560:36)
+    at afterResolve (node:internal/modules/esm/loader:607:52)
+    at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:613:12) {
+  code: 'ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX'
+}
+
+Node.js v24.19.0
+✖ tests/resumable-planner.test.ts (122.956859ms)
+✔ resumes a missing claim, preserves prior evidence attribution, and changes the deterministic verdict (10.802406ms)
+✔ additional evidence cannot override a genuine deterministic failure (6.076724ms)
+✔ rejects forged verdict fields in evidence submissions (4.668896ms)
+✔ rejects a concurrent resume while the first resume is still executing (5.999661ms)
+✔ proof obligations distinguish presence from implementation behavior (4.075506ms)
+✔ a broad repository claim cannot satisfy an implementation proof obligation (7.855528ms)
+✔ unknown protocol evidence is unsupported instead of falling back to repository presence (2.420057ms)
+✔ subjective criteria are human review even when a sponsor name is present (0.270854ms)
+✔ capability registry maps a Base chain check to EVM evidence, not a sponsor branch (0.375496ms)
+✔ a named unsupported chain cannot be silently verified against Base (15.338696ms)
+✔ identical HTTP requests share one retried observation across all assertions (38.307437ms)
+✔ a terminal observation outage makes every dependent assertion INCONCLUSIVE (1.364268ms)
+✔ materially different HTTP requests do not share an observation (1.964951ms)
+✔ method, headers, and body changes produce distinct request fingerprints (23.36411ms)
+✔ resumed HTTP evidence is a fresh immutable point-in-time observation (2.119003ms)
+✔ bounded source verification inspects data without executing repository code (50.355532ms)
+✔ malformed static source cannot establish structural implementation (2.512757ms)
+✔ comments, gibberish, and oversized source remain data and cannot prove a symbol (11.479526ms)
+✔ missing or unavailable source cannot pass a static syntax check (4.50243ms)
+✔ EVM profiles are allowlisted and chain identity remains deterministic (3.811213ms)
+✔ Arc resolves through the chain profile and generic EVM capability registry (2.588388ms)
+✔ Arc RPC chain mismatch is a deterministic closed failure (45.341576ms)
+✔ Arc transaction sender and destination assertions use generic EVM RPC operations (2.810631ms)
+✔ Arc receipt success and event matching remain generic transaction-receipt operations (2.389712ms)
+✔ Arc USDC Transfer decoding compares token, recipient, and exact amount (1.647851ms)
+✔ unsupported chains remain unsupported while Base and Base Sepolia profiles stay unchanged (1.659745ms)
+✔ canonical planning accepts Arc generic EVM operations without sponsor-specific vocabulary (2.394685ms)
+✔ the capability registry is the authoritative source for planner EVM profiles (1.927065ms)
+✔ Arc semantic routing and verifier steps use the shared generic EVM capability (27.77331ms)
+✔ Arc compound on-chain wording atomizes before capability resolution (4.527548ms)
+✔ an unsupported compound chain keeps every objective term independently visible (3.052527ms)
+✔ subjective criteria remain human review rather than unsupported objective terms (2.098693ms)
+✔ mixed GitHub, HTTP, and Arc terms pass one canonical validation path (5.080354ms)
+✔ generic EVM conjunctions produce four independent atomic obligations (28.823052ms)
+✔ conjunction punctuation and equivalent completion language preserve the same four predicates (6.939171ms)
+✔ incomplete planner routes cannot produce VERIFIED when the ledger retains omitted EVM terms (3.457459ms)
+✔ the orchestrator cannot issue VERIFIED from a planner that omits EVM predicates (40.174486ms)
+✔ transaction existence cannot establish transaction success (1.785643ms)
+✔ GitHub source existence cannot establish deployed contract code (1.50036ms)
+✔ chain identity cannot establish deployed contract code (0.506903ms)
+✔ unknown-chain compound terms remain four explicit unsupported objectives (0.92854ms)
+✔ coverage completeness is independently checkable against the source ledger (1.58523ms)
+✔ canonical EVM aliases preserve explicit contract-code and receipt-success mappings (1.696333ms)
+✔ composite GitHub, HTTP, and EVM scope produces one complete canonical plan (4.231789ms)
+✔ provider fallback preserves the same independent term ledger (3.672541ms)
+✔ new EVM receipts use the protocol-neutral provenance namespace (0.825526ms)
+✔ semantic planner failures expose a non-secret failure category internally (1.3467ms)
+✔ audits the generic EVM source independently and retains all four obligations (18.028228ms)
+✔ arbitrary contract names do not change the audited obligation set (2.83604ms)
+✔ generic EVM deployment language maps to CONTRACT_CODE without requiring the word contract before the name (3.975699ms)
+✔ source audit remains a hard guard when a semantic ledger is intentionally truncated (1.577904ms)
+✔ planner omission remains incomplete after the audited ledger contains deployment (0.513889ms)
+✔ chain, transaction existence, and receipt success cannot satisfy CONTRACT_CODE (0.255502ms)
+✔ mixed GitHub, HTTP, and EVM source preserves eight atomic terms through canonical planning (4.079198ms)
+✔ capability-oriented audit covers every currently supported predicate family (0.858231ms)
+✔ predicate detectors are registered against the generic capability descriptors (0.417118ms)
+✔ coverage completeness protects detected predicate and proof-operation provenance (1.269927ms)
+ℹ tests 151
+ℹ suites 0
+ℹ pass 145
+ℹ fail 4
+ℹ cancelled 0
+ℹ skipped 2
+ℹ todo 0
+ℹ duration_ms 2692.665334
+
+✖ failing tests:
+
+test at tests/mandate-integration.test.ts:1:1
+✖ tests/mandate-integration.test.ts (258.005709ms)
+  'test failed'
+
+test at tests/planner-integrity.test.ts:1:1
+✖ tests/planner-integrity.test.ts (308.426881ms)
+  'test failed'
+
+test at tests/prooflet-integration.test.ts:1:1
+✖ tests/prooflet-integration.test.ts (307.047044ms)
+  'test failed'
+
+test at tests/resumable-planner.test.ts:1:1
+✖ tests/resumable-planner.test.ts (122.956859ms)
+  'test failed'
