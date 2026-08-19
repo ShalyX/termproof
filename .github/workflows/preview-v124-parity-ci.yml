@@ -6,20 +6,62 @@ on:
       - preview/v12.4-parity-proof-connected
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   validate:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: npm
-      - run: npm ci
-      - run: npm test
-      - run: npm run lint
-      - run: npm run validate:artifact
-      - run: npm run vercel-build
-      - run: npm audit --omit=dev --audit-level=high
+      - name: Validate and record result
+        shell: bash
+        run: |
+          set +e
+          mkdir -p .ci
+          RESULT=.ci/preview-v124-parity-result.txt
+          : > "$RESULT"
+          echo "validated_commit=$(git rev-parse HEAD)" >> "$RESULT"
+
+          npm ci > /tmp/npm-ci.log 2>&1; NPM_CI=$?
+          echo "npm_ci=$NPM_CI" >> "$RESULT"
+          if [ "$NPM_CI" -eq 0 ]; then
+            npm test > /tmp/test.log 2>&1; TEST=$?
+            npm run lint > /tmp/lint.log 2>&1; LINT=$?
+            npm run validate:artifact > /tmp/artifact.log 2>&1; ARTIFACT=$?
+            npm run vercel-build > /tmp/vercel-build.log 2>&1; BUILD=$?
+            npm audit --omit=dev --audit-level=high > /tmp/audit.log 2>&1; AUDIT=$?
+          else
+            TEST=99; LINT=99; ARTIFACT=99; BUILD=99; AUDIT=99
+          fi
+          echo "test_full=$TEST" >> "$RESULT"
+          echo "lint=$LINT" >> "$RESULT"
+          echo "artifact=$ARTIFACT" >> "$RESULT"
+          echo "vercel_build=$BUILD" >> "$RESULT"
+          echo "prod_audit_high=$AUDIT" >> "$RESULT"
+
+          for pair in "npm_ci:$NPM_CI:/tmp/npm-ci.log" "test_full:$TEST:/tmp/test.log" "lint:$LINT:/tmp/lint.log" "artifact:$ARTIFACT:/tmp/artifact.log" "vercel_build:$BUILD:/tmp/vercel-build.log" "prod_audit_high:$AUDIT:/tmp/audit.log"; do
+            IFS=: read -r NAME STATUS LOG <<< "$pair"
+            if [ "$STATUS" != "0" ] && [ "$STATUS" != "99" ] && [ -f "$LOG" ]; then
+              echo "" >> "$RESULT"
+              echo "--- $NAME failure tail ---" >> "$RESULT"
+              tail -n 120 "$LOG" >> "$RESULT"
+            fi
+          done
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$RESULT"
+          if ! git diff --cached --quiet; then
+            git commit -m "ci: record preview parity validation [skip ci]"
+            git push origin HEAD:preview/v12.4-parity-proof-connected
+          fi
+
+          if [ "$NPM_CI" -ne 0 ] || [ "$TEST" -ne 0 ] || [ "$LINT" -ne 0 ] || [ "$ARTIFACT" -ne 0 ] || [ "$BUILD" -ne 0 ] || [ "$AUDIT" -ne 0 ]; then
+            exit 1
+          fi
