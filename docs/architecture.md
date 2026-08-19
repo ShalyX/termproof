@@ -8,7 +8,8 @@
 4. The orchestrator groups identical HTTP request fingerprints within one run into one bounded observation sequence, then evaluates all dependent assertions against that immutable response. Different methods, headers, bodies, URLs, runs, and resumes remain isolated.
 5. Adapters fetch bounded observations and emit evidence records.
 6. Deterministic coverage reconciles the source-predicate audit against the ledger and the plan. Deterministic policy evaluates each claim and then the milestone. `VERIFIED` requires both source-predicate completeness and complete required-term coverage with all required claims passing; a missing or mismatched predicate returns `NEEDS_EVIDENCE / LEDGER_INCOMPLETE`.
-7. The UI displays coverage, proof obligation, selected capability, evidence lineage, the result, and the evidence ledger; it does not calculate verdicts.
+7. The durable runtime commits the case snapshot and normalized audit/evidence rows transactionally before the API returns a successful `start` response.
+8. The UI displays coverage, proof obligation, selected capability, evidence lineage, the result, and the evidence ledger; it does not calculate verdicts.
 
 ## Trust boundaries
 
@@ -22,9 +23,32 @@
 - Policy code is the only component that transforms step results into claim or milestone dispositions.
 - Planner provenance records the actual provider, model, primary/fallback role, non-secret failover reason, planner timestamp/version, and plan hash. Provider secrets never enter the plan, evidence, API response, or client bundle.
 
-## Resumable verification
+## Durable resumable verification
 
-Cases are currently in-process records. `start` executes available steps and records open evidence requests. `resume` validates the case, claim, step, adapter, and allowed evidence fields before re-running only that step. Existing ledger entries remain attributable as `initial` or `supplied`; concurrent resume calls for one case are rejected.
+Production resumable state is stored in PostgreSQL through a `PersistenceAdapter`; process memory is not the production source of truth. The memory adapter exists only for isolated tests/local use.
+
+`start` executes available checks, computes the deterministic snapshot, and transactionally stores:
+
+- the current case/version envelope;
+- the original acceptance-term ledger and independent source-predicate audit;
+- planner plan/provenance;
+- source observations;
+- evidence receipts;
+- claim results;
+- final policy verdict; and
+- any open evidence requests.
+
+The case state envelope preserves `version`, the original verification input, the normalized acceptance terms, the independent acceptance audit, and the complete case snapshot. This is the same shape used by the promoted v12.4 production deployment.
+
+`get` reads the case from PostgreSQL, so a case survives a serverless worker/process replacement.
+
+`resume` acquires the case row with `FOR UPDATE NOWAIT`, validates the requested evidence against the open request and planned step, advances the case version exactly once, appends newly established evidence/result records, and records the state transition. An idempotency key plus request hash prevents replay from applying the same mutation twice or reusing one key for different evidence. Version checks fail closed on concurrent mutation.
+
+The acceptance ledger and source-predicate audit are immutable content-addressed facts of the original condition. A resume does not rewrite or duplicate them. Evidence/source rows remain attributable and append-only.
+
+## Rate limiting
+
+Production request buckets use the same PostgreSQL persistence boundary through the atomic `termproof.consume_rate_limit(...)` function. Multiple serverless workers therefore share one counter per scope/window. Database inability fails closed instead of silently falling back to a process-local limiter.
 
 ## Adapters
 
@@ -37,4 +61,6 @@ Cases are currently in-process records. `start` executes available steps and rec
 
 ## Deployment
 
-The app is deployed as the Sites/Vinext production artifact. No D1 or R2 data store is required by the verifier. Runtime secrets are environment configuration, not source or client data.
+The production runtime is a Vercel Node/Vinext deployment backed by the dedicated Termproof PostgreSQL database. `TERMPROOF_DATABASE_URL` is server-only and mandatory for the production resumable API; there is no memory fallback when durable persistence is unavailable. The Sites/Cloudflare build path remains available as a separate artifact path, but it is not the production durability boundary.
+
+Verification semantics remain the frozen v12.3.4 verifier/policy semantics; v12.4 changes persistence, concurrency, rate limiting, and Vercel runtime wiring only.
