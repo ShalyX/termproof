@@ -90,11 +90,18 @@ export function materializeResumableEvidence(
     });
   }
 
+  // `missingEvidence` is provider prose, not a stable term-ID list. Rebuild it
+  // from the declarations that still genuinely need evidence so a successfully
+  // materialized deferred route cannot retain a stale missing-evidence message.
+  const missingEvidence = acceptanceTerms
+    .filter((declaration) => declaration.disposition === 'NEEDS_EVIDENCE')
+    .map((declaration) => declaration.reason ?? declaration.id);
+
   return {
     ...plan,
     acceptanceTerms,
     claims,
-    missingEvidence: plan.missingEvidence.filter((termId) => !materialized.has(termId)),
+    missingEvidence,
   };
 }
 
