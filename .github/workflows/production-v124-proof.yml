@@ -1,0 +1,103 @@
+name: Production v12.4 proof
+
+on:
+  push:
+    branches:
+      - ops/production-v124-proof
+
+permissions:
+  contents: read
+
+jobs:
+  prove:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Exercise production start, resume, replay, conflict and get
+        env:
+          RUN_ID: ${{ github.run_id }}
+        shell: bash
+        run: |
+          node <<'NODE'
+          const base = 'https://termproof-mauve.vercel.app/api/verify';
+          const runId = process.env.RUN_ID;
+          const startRequestId = `prod-v124-start-${runId}`;
+          const resumeKey = `prod-v124-resume-${runId}`;
+          const milestone = 'The GitHub repository exists. A public HTTPS health endpoint, whose URL is not specified in this agreement and must be supplied by the project as evidence, returns HTTP 200.';
+          const githubRepository = 'https://github.com/ShalyX/termproof';
+
+          async function post(body, headers = {}) {
+            const response = await fetch(base, {
+              method: 'POST',
+              headers: { 'content-type': 'application/json', ...headers },
+              body: JSON.stringify(body),
+              signal: AbortSignal.timeout(120_000),
+            });
+            const text = await response.text();
+            let data;
+            try { data = JSON.parse(text); }
+            catch { throw new Error(`Non-JSON response (${response.status}): ${text.slice(0, 500)}`); }
+            return { status: response.status, data, requestId: response.headers.get('x-request-id') };
+          }
+
+          function requireCondition(condition, message) {
+            if (!condition) throw new Error(message);
+          }
+
+          const start = await post(
+            { mode: 'start', milestone, githubRepository },
+            { 'x-request-id': startRequestId },
+          );
+          requireCondition(start.status === 200, `start status ${start.status}: ${JSON.stringify(start.data)}`);
+          requireCondition(start.data.verdict === 'NEEDS_EVIDENCE', `expected NEEDS_EVIDENCE, got ${start.data.verdict}`);
+          const request = start.data.evidenceRequests?.find((item) => item.status === 'OPEN');
+          requireCondition(request, 'expected one OPEN evidence request');
+          requireCondition(request.request.includes('HTTP 200'), `unexpected request: ${request.request}`);
+          const caseId = start.data.caseId;
+          requireCondition(typeof caseId === 'string' && caseId.length > 0, 'missing caseId');
+          console.log(`START PASS case=${caseId} verdict=${start.data.verdict} request=${request.id}`);
+
+          const evidence = {
+            kind: 'http_source',
+            claimId: request.claimId,
+            stepId: request.stepId,
+            url: 'https://termproof-mauve.vercel.app/',
+          };
+
+          const resume = await post(
+            { mode: 'resume', caseId, evidence },
+            { 'x-request-id': `${resumeKey}-request`, 'idempotency-key': resumeKey },
+          );
+          requireCondition(resume.status === 200, `resume status ${resume.status}: ${JSON.stringify(resume.data)}`);
+          requireCondition(resume.data.verdict === 'VERIFIED', `expected VERIFIED after resume, got ${resume.data.verdict}`);
+          requireCondition(resume.data.evidenceRequests?.some((item) => item.id === request.id && item.status === 'SATISFIED'), 'evidence request did not persist SATISFIED');
+          console.log(`RESUME PASS case=${caseId} verdict=${resume.data.verdict}`);
+
+          const replay = await post(
+            { mode: 'resume', caseId, evidence },
+            { 'x-request-id': `${resumeKey}-replay`, 'idempotency-key': resumeKey },
+          );
+          requireCondition(replay.status === 200, `replay status ${replay.status}: ${JSON.stringify(replay.data)}`);
+          requireCondition(replay.data.verdict === 'VERIFIED', `replay verdict ${replay.data.verdict}`);
+          console.log(`REPLAY PASS case=${caseId} verdict=${replay.data.verdict}`);
+
+          const conflict = await post(
+            { mode: 'resume', caseId, evidence: { ...evidence, url: 'https://termproof-shalyxs-projects.vercel.app/' } },
+            { 'x-request-id': `${resumeKey}-conflict`, 'idempotency-key': resumeKey },
+          );
+          requireCondition(conflict.status === 409, `expected conflict 409, got ${conflict.status}: ${JSON.stringify(conflict.data)}`);
+          requireCondition(conflict.data.code === 'IDEMPOTENCY_CONFLICT', `expected IDEMPOTENCY_CONFLICT, got ${conflict.data.code}`);
+          console.log(`CONFLICT PASS case=${caseId} code=${conflict.data.code}`);
+
+          const get = await post(
+            { mode: 'get', caseId },
+            { 'x-request-id': `prod-v124-get-${runId}` },
+          );
+          requireCondition(get.status === 200, `get status ${get.status}: ${JSON.stringify(get.data)}`);
+          requireCondition(get.data.caseId === caseId, `get returned wrong case ${get.data.caseId}`);
+          requireCondition(get.data.verdict === 'VERIFIED', `get verdict ${get.data.verdict}`);
+          console.log(`GET PASS case=${caseId} verdict=${get.data.verdict}`);
+          console.log(`PRODUCTION_V124_PROOF_CASE=${caseId}`);
+          NODE
