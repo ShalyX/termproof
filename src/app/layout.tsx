@@ -6,9 +6,10 @@ import './styles.css';
 
 const title = 'Termproof — Terms, tested.';
 const description = 'Proof before release. Termproof tests technical milestone terms against reproducible GitHub, HTTP, Base/EVM, and npm evidence.';
+const publicOrigin = process.env.NEXT_PUBLIC_SITE_URL?.trim() || 'https://termproof-mauve.vercel.app';
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://grant-milestone-verifier.nova-sparkle5f.chatgpt.site'),
+  metadataBase: new URL(publicOrigin),
   title,
   description,
   applicationName: 'Termproof',
