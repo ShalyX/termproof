@@ -1,0 +1,90 @@
+name: Fuse black-box production proof
+
+on:
+  push:
+    branches:
+      - ops/production-v124-proof
+
+permissions:
+  contents: read
+
+jobs:
+  prove:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Run truth, contradiction, and proof-strength controls
+        env:
+          RUN_ID: ${{ github.run_id }}
+        shell: bash
+        run: |
+          node <<'NODE'
+          const endpoint = 'https://termproof-mauve.vercel.app/api/verify';
+          const repository = 'https://github.com/ShalyX/fuse-agent-control-plane';
+          const goodTx = '0x03a9f53dc180865a7168cf44f6f0ed2da03fe246aa7f68ddb286abe6cd27d772';
+          const badTx = '0x03a9f53dc180865a7168cf44f6f0ed2da03fe246aa7f68ddb286abe6cd27d773';
+          const base = `Fuse has a public implementation repository containing package.json, contracts/FuseSpendMandate.sol, and evidence/arc-mandate-2026-07-12.json. Its public persisted-run endpoint at https://fuse-agent-control-plane.vercel.app/api/runs/demo-mandate returns HTTP 200 with valid JSON. On Arc Testnet, FuseSpendMandate is deployed at 0xf736609aa15b255322df4d5dfe6ea66b59b7c663, and transaction ${goodTx} succeeded.`;
+
+          async function verify(label, milestone) {
+            const response = await fetch(endpoint, {
+              method: 'POST',
+              headers: {
+                'content-type': 'application/json',
+                'x-request-id': `fuse-${label}-${process.env.RUN_ID}`,
+              },
+              body: JSON.stringify({ milestone, githubRepository: repository }),
+              signal: AbortSignal.timeout(180_000),
+            });
+            const text = await response.text();
+            let run;
+            try { run = JSON.parse(text); }
+            catch { throw new Error(`${label}: non-JSON ${response.status}: ${text.slice(0, 500)}`); }
+            if (response.status !== 200) throw new Error(`${label}: HTTP ${response.status}: ${JSON.stringify(run)}`);
+            const coverage = run.coverage ?? run.plan?.coverage ?? run.provenance?.coverage ?? [];
+            const summary = {
+              verdict: run.verdict,
+              coverageCount: coverage.length,
+              coverage: coverage.map((term) => ({
+                id: term.id,
+                disposition: term.disposition,
+                evidence: term.evidenceEstablished?.length ?? 0,
+                capability: term.selectedCapability ?? null,
+              })),
+              claims: (run.claims ?? []).map((claim) => ({
+                id: claim.id,
+                result: claim.result,
+                steps: (claim.steps ?? []).map((step) => ({
+                  adapter: step.adapter,
+                  operation: step.operation,
+                  result: step.result,
+                })),
+              })),
+            };
+            console.log(`${label.toUpperCase()} ${JSON.stringify(summary)}`);
+            return { run, summary };
+          }
+
+          function requireCondition(condition, message) {
+            if (!condition) throw new Error(message);
+          }
+
+          const truth = await verify('truth', base);
+          requireCondition(truth.run.verdict === 'VERIFIED', `truth expected VERIFIED, got ${truth.run.verdict}`);
+          requireCondition(truth.summary.coverageCount === 8, `truth expected 8 acceptance terms, got ${truth.summary.coverageCount}`);
+          requireCondition(truth.summary.claims.every((claim) => claim.result === 'PASS'), 'truth expected every emitted claim to PASS');
+          console.log('TRUTH PASS — 8/8 acceptance terms VERIFIED');
+
+          const contradiction = await verify('wrong-hash', base.replace(goodTx, badTx));
+          requireCondition(contradiction.run.verdict === 'FAILED', `wrong-hash expected FAILED, got ${contradiction.run.verdict}`);
+          requireCondition(contradiction.summary.coverageCount === 8, `wrong-hash expected same 8 acceptance terms, got ${contradiction.summary.coverageCount}`);
+          requireCondition(contradiction.summary.claims.some((claim) => claim.result === 'FAIL'), 'wrong-hash expected at least one deterministic FAIL');
+          console.log('WRONG-HASH PASS — exact contradiction produced FAILED');
+
+          const stronger = await verify('strength', `${base} Fuse settles every individual inference nanopayment directly through FuseSpendMandate onchain.`);
+          requireCondition(stronger.run.verdict === 'NEEDS_EVIDENCE', `strength expected NEEDS_EVIDENCE, got ${stronger.run.verdict}`);
+          requireCondition(stronger.summary.coverageCount === 9, `strength expected 9 acceptance terms, got ${stronger.summary.coverageCount}`);
+          requireCondition(stronger.summary.coverage.some((term) => term.disposition !== 'PLANNED' || term.evidence === 0), 'strength expected one stronger term to remain unestablished');
+          console.log('PROOF-STRENGTH PASS — stronger behavioral claim was preserved and held for evidence');
+          NODE
