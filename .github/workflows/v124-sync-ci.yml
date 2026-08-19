@@ -29,8 +29,24 @@ jobs:
           RESULT=.ci/v124-sync-result.txt
           : > "$RESULT"
 
+          cp package.json /tmp/package.json.original
+          node - <<'NODE'
+          const fs = require('fs');
+          const p = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          p.devDependencies.nitro = '3.0.260610-beta';
+          fs.writeFileSync('package.json', JSON.stringify(p, null, 2) + '\n');
+          NODE
           npm install --package-lock-only --ignore-scripts > /tmp/lock.log 2>&1
           LOCK=$?
+          cp /tmp/package.json.original package.json
+          if [ "$LOCK" -eq 0 ]; then
+            node - <<'NODE'
+            const fs = require('fs');
+            const lock = JSON.parse(fs.readFileSync('package-lock.json', 'utf8'));
+            lock.packages[''].devDependencies.nitro = '^3.0.0-beta.5';
+            fs.writeFileSync('package-lock.json', JSON.stringify(lock, null, 2) + '\n');
+            NODE
+          fi
           echo "package_lock=$LOCK" >> "$RESULT"
 
           if [ "$LOCK" -eq 0 ]; then
@@ -42,6 +58,7 @@ jobs:
           echo "npm_ci=$NPM_CI" >> "$RESULT"
 
           if [ "$NPM_CI" -eq 0 ]; then
+            npm ls nitro pg --depth=0 >> "$RESULT" 2>&1
             npm run test:core > /tmp/test.log 2>&1
             TESTS=$?
             npm run lint > /tmp/lint.log 2>&1
