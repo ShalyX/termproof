@@ -1,11 +1,30 @@
-validated_commit=be52f481fbc93d21588cafd5be0a43b2ad042e83
+validated_commit=36b3412a6b0b65ba8557937772523d6d0a139078
 package_lock=0
 npm_ci=0
 grant-milestone-verifier@0.1.0 /home/runner/work/termproof/termproof
 ├── nitro@3.0.260610-beta
 └── pg@8.16.3
 
-test_core=0
+test_full=126
 lint=0
+artifact=126
 vercel_build=0
 prod_audit_high=0
+
+--- test_full failure tail ---
+
+> grant-milestone-verifier@0.1.0 test
+> npm run build && node --test tests/rendered-html.test.mjs && npm run test:core
+
+
+> grant-milestone-verifier@0.1.0 build
+> bash scripts/build-verified.sh
+
+scripts/build-verified.sh: line 7: /home/runner/work/termproof/termproof/scripts/sites-env.sh: Permission denied
+
+--- artifact failure tail ---
+
+> grant-milestone-verifier@0.1.0 validate:artifact
+> bash scripts/validate-artifact.sh
+
+scripts/validate-artifact.sh: line 7: /home/runner/work/termproof/termproof/scripts/sites-env.sh: Permission denied
