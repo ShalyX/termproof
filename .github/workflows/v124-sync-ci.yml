@@ -4,9 +4,6 @@ on:
   push:
     branches:
       - v12.4-durable-runtime-sync
-  pull_request:
-    branches:
-      - main
   workflow_dispatch:
 
 permissions:
@@ -24,24 +21,59 @@ jobs:
         with:
           node-version: 24
           cache: npm
-      - name: Refresh lockfile for restored runtime dependencies
-        run: npm install --package-lock-only --ignore-scripts
-      - name: Commit lockfile if needed
-        if: github.event_name == 'push'
+      - name: Validate and persist result
         shell: bash
         run: |
-          if ! git diff --quiet -- package-lock.json; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add package-lock.json
-            git commit -m "build: refresh lockfile for v12.4 runtime"
+          set +e
+          mkdir -p .ci
+          RESULT=.ci/v124-sync-result.txt
+          : > "$RESULT"
+
+          npm install --package-lock-only --ignore-scripts > /tmp/lock.log 2>&1
+          LOCK=$?
+          echo "package_lock=$LOCK" >> "$RESULT"
+
+          if [ "$LOCK" -eq 0 ]; then
+            npm ci > /tmp/ci.log 2>&1
+            NPM_CI=$?
+          else
+            NPM_CI=99
+          fi
+          echo "npm_ci=$NPM_CI" >> "$RESULT"
+
+          if [ "$NPM_CI" -eq 0 ]; then
+            npm run test:core > /tmp/test.log 2>&1
+            TESTS=$?
+            npm run lint > /tmp/lint.log 2>&1
+            LINT=$?
+            npm run vercel-build > /tmp/build.log 2>&1
+            BUILD=$?
+          else
+            TESTS=99
+            LINT=99
+            BUILD=99
+          fi
+          echo "test_core=$TESTS" >> "$RESULT"
+          echo "lint=$LINT" >> "$RESULT"
+          echo "vercel_build=$BUILD" >> "$RESULT"
+
+          for pair in "package_lock:$LOCK:/tmp/lock.log" "npm_ci:$NPM_CI:/tmp/ci.log" "test_core:$TESTS:/tmp/test.log" "lint:$LINT:/tmp/lint.log" "vercel_build:$BUILD:/tmp/build.log"; do
+            IFS=: read -r NAME STATUS LOG <<< "$pair"
+            if [ "$STATUS" != "0" ] && [ "$STATUS" != "99" ] && [ -f "$LOG" ]; then
+              echo "" >> "$RESULT"
+              echo "--- $NAME failure tail ---" >> "$RESULT"
+              tail -n 80 "$LOG" >> "$RESULT"
+            fi
+          done
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package-lock.json "$RESULT"
+          if ! git diff --cached --quiet; then
+            git commit -m "ci: record v12.4 sync validation [skip ci]"
             git push origin HEAD:v12.4-durable-runtime-sync
           fi
-      - name: Clean install
-        run: npm ci
-      - name: Core tests
-        run: npm run test:core
-      - name: Lint
-        run: npm run lint
-      - name: Vercel build
-        run: npm run vercel-build
+
+          if [ "$LOCK" -ne 0 ] || [ "$NPM_CI" -ne 0 ] || [ "$TESTS" -ne 0 ] || [ "$LINT" -ne 0 ] || [ "$BUILD" -ne 0 ]; then
+            exit 1
+          fi
