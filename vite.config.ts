@@ -1,4 +1,5 @@
 import vinext from "vinext";
+import { nitro } from "nitro/vite";
 import { defineConfig } from "vite";
 import hostingConfig from "./.openai/hosting.json";
 import { sites } from "./build/sites-vite-plugin";
@@ -43,7 +44,7 @@ export default defineConfig(async () => {
 
   if (isVercelBuild) {
     return {
-      plugins: [vinext()],
+      plugins: [vinext(), nitro()],
     };
   }
 
