@@ -5,6 +5,12 @@ import { buildAcceptanceCoverage, buildAcceptanceTermLedger } from './coverage.t
 import { getCapabilityForStep } from './capabilities.ts';
 import { evaluateClaim, evaluateMilestone } from './policy.ts';
 import { freezeEvidence, hashEvidence, stableJson } from './evidence.ts';
+import {
+  MemoryPersistenceAdapter,
+  hashPersistenceRequest,
+  type PersistenceAdapter,
+  type PersistenceRequestContext,
+} from './persistence.ts';
 import type { AcceptanceTermCoverage, AdapterExecution, ClaimExecution, EvidenceProvenance, EvidenceRecord, HttpStep, VerificationPlan, VerificationPlanStep, VerificationInput } from './types.ts';
 
 export type EvidenceSubmission = { kind: 'http_source'; claimId: string; stepId: string; url: string };
@@ -37,17 +43,19 @@ export interface VerificationCaseSnapshot {
 }
 
 type Adapter = { execute: (step: VerificationPlanStep, repository?: { owner: string; repo: string }) => Promise<AdapterExecution> };
+type Dependencies = { planner: MilestonePlanner; github: Adapter; http: Adapter; base: Adapter; npm: Adapter; now?: () => Date; persistence?: PersistenceAdapter };
 
 export class ResumableVerificationService {
-  private readonly cases = new Map<string, { input: VerificationInput; plan: VerificationPlan; snapshot: VerificationCaseSnapshot }>();
-  private readonly resumeLocks = new Set<string>();
-  private readonly deps: { planner: MilestonePlanner; github: Adapter; http: Adapter; base: Adapter; npm: Adapter; now?: () => Date };
+  private readonly deps: Omit<Dependencies, 'persistence'>;
+  readonly persistence: PersistenceAdapter;
 
-  constructor(deps: { planner: MilestonePlanner; github: Adapter; http: Adapter; base: Adapter; npm: Adapter; now?: () => Date }) {
-    this.deps = deps;
+  constructor(deps: Dependencies) {
+    const { persistence, ...runtimeDeps } = deps;
+    this.deps = runtimeDeps;
+    this.persistence = persistence ?? new MemoryPersistenceAdapter();
   }
 
-  async start(input: VerificationInput): Promise<VerificationCaseSnapshot> {
+  async start(input: VerificationInput, context: PersistenceRequestContext = {}): Promise<VerificationCaseSnapshot> {
     if (!input.milestone.trim()) throw new Error('Milestone text is required');
     this.deps.planner.preflight?.();
     const repository = parseGitHubRepository(input.githubRepository);
@@ -61,9 +69,9 @@ export class ResumableVerificationService {
     const httpSteps = plan.claims.flatMap((claim) => claim.steps).filter((step): step is HttpStep => step.adapter === 'http' && !step.requiresEvidence);
     const executeMany = (this.deps.http as Adapter & { executeMany?: (steps: readonly HttpStep[]) => Promise<Map<string, AdapterExecution>> }).executeMany;
     const httpResults = executeMany ? await executeMany.call(this.deps.http, httpSteps) : new Map<string, AdapterExecution>();
-    const claims = await Promise.all(plan.claims.map(async (planned) => {
-      const execution: ClaimExecution = { id: planned.id, acceptanceTermIds: planned.acceptanceTermIds ?? [], statement: planned.statement, required: planned.required, testability: planned.testability, steps: [] };
-      for (const step of planned.steps) {
+    const claims = await Promise.all(plan.claims.map(async (plannedClaim) => {
+      const execution: ClaimExecution = { id: plannedClaim.id, acceptanceTermIds: plannedClaim.acceptanceTermIds ?? [], statement: plannedClaim.statement, required: plannedClaim.required, testability: plannedClaim.testability, steps: [] };
+      for (const step of plannedClaim.steps) {
         if (step.requiresEvidence) {
           requests.push({ id: randomUUID(), claimId: step.claimId, stepId: step.id, request: this.requestFor(step), status: 'OPEN' });
           continue;
@@ -90,53 +98,57 @@ export class ResumableVerificationService {
     const snapshot = this.snapshot(input, resolvedPlan, claims, ledger, requests, resolvedCoverage, provenance, acceptanceLedger);
     const caseId = randomUUID();
     snapshot.caseId = caseId;
-    this.cases.set(caseId, { input, plan, snapshot });
+    await this.persistence.createCase({ caseId, version: 0, input, plan: resolvedPlan, snapshot, acceptanceLedger }, context);
     return snapshot;
   }
 
-  get(caseId: string): VerificationCaseSnapshot {
-    const current = this.cases.get(caseId);
-    if (!current) throw new Error('Verification case not found');
-    return current.snapshot;
+  async get(caseId: string): Promise<VerificationCaseSnapshot> {
+    return (await this.persistence.getCase(caseId)).snapshot;
   }
 
-  async supplyEvidence(caseId: string, submission: EvidenceSubmission & Record<string, unknown>): Promise<VerificationCaseSnapshot> {
-    const current = this.cases.get(caseId);
-    if (!current) throw new Error('Verification case not found');
-    if (this.resumeLocks.has(caseId)) throw new Error('Resume already in progress');
-    this.resumeLocks.add(caseId);
-    try {
+  async supplyEvidence(
+    caseId: string,
+    submission: EvidenceSubmission & Record<string, unknown>,
+    context: PersistenceRequestContext = {},
+  ): Promise<VerificationCaseSnapshot> {
     if (Object.keys(submission).some((key) => !['kind', 'claimId', 'stepId', 'url'].includes(key))) throw new Error('Unsupported evidence fields');
-    const request = current.snapshot.evidenceRequests.find((item) => item.claimId === submission.claimId && item.stepId === submission.stepId && item.status === 'OPEN');
-    if (!request) throw new Error('No open evidence request for this claim');
     if (submission.kind !== 'http_source' || typeof submission.url !== 'string' || !submission.url.startsWith('https://')) throw new Error('A public HTTPS source is required');
-    const planned = current.plan.claims.flatMap((claim) => claim.steps).find((step) => step.id === submission.stepId);
-    if (!planned || planned.adapter !== 'http') throw new Error('Evidence source does not match the requested adapter');
-    const step: VerificationPlanStep = { ...planned, requiresEvidence: false, params: { ...planned.params, url: submission.url } };
-    const result = await this.deps.http.execute(step);
-    const ledger = [...current.snapshot.evidenceLedger, { evidence: result.evidence, origin: 'supplied' as const, claimId: step.claimId, stepId: step.id }];
-    const claims = current.snapshot.claims.map((claim) => claim.id === step.claimId
-      ? { ...claim, steps: [...claim.steps, { id: step.id, adapter: step.adapter, operation: step.operation, result: result.result, evidenceIds: [result.evidence.id], message: result.message }], result: undefined }
-      : claim);
-    const recalculated = claims.map((claim) => ({ ...claim, result: evaluateClaim(claim) as Required<ClaimExecution>['result'] })) as Array<Required<ClaimExecution>>;
-    request.status = 'SATISFIED';
-    const recalculatedCoverage = (current.snapshot.coverage ?? []).map((term) => term.stepIds.includes(step.id)
-      ? { ...term, evidenceEstablished: [...new Set([...term.evidenceEstablished, result.evidence.id])] }
-      : term);
-    const resolvedPlan = { ...current.plan, coverage: recalculatedCoverage };
-    const acceptanceLedger = buildAcceptanceTermLedger(current.input.milestone);
-    const acceptanceTerms = acceptanceLedger.terms;
-    const verdict = evaluateMilestone(recalculated, recalculatedCoverage, acceptanceTerms, acceptanceLedger.audit);
-    const provenance = this.provenance(current.input, resolvedPlan, verdict);
-    result.evidence.provenance = provenance;
-    freezeEvidence(result.evidence);
-    current.plan = resolvedPlan;
-    current.snapshot = this.snapshot(current.input, resolvedPlan, recalculated, ledger, current.snapshot.evidenceRequests, recalculatedCoverage, provenance, acceptanceLedger);
-    current.snapshot.caseId = caseId;
-    return current.snapshot;
-    } finally {
-      this.resumeLocks.delete(caseId);
-    }
+
+    const mutationContext: PersistenceRequestContext = {
+      ...context,
+      idempotencyKey: context.idempotencyKey ?? context.requestId ?? null,
+      requestHash: context.requestHash ?? hashPersistenceRequest(submission),
+    };
+
+    const updated = await this.persistence.mutateCase(caseId, mutationContext, async (current) => {
+      const request = current.snapshot.evidenceRequests.find((item) => item.claimId === submission.claimId && item.stepId === submission.stepId && item.status === 'OPEN');
+      if (!request) throw new Error('No open evidence request for this claim');
+      const planned = current.plan.claims.flatMap((claim) => claim.steps).find((step) => step.id === submission.stepId);
+      if (!planned || planned.adapter !== 'http') throw new Error('Evidence source does not match the requested adapter');
+      const step: VerificationPlanStep = { ...planned, requiresEvidence: false, params: { ...planned.params, url: submission.url } };
+      const result = await this.deps.http.execute(step);
+      const ledger = [...current.snapshot.evidenceLedger, { evidence: result.evidence, origin: 'supplied' as const, claimId: step.claimId, stepId: step.id }];
+      const claims = current.snapshot.claims.map((claim) => claim.id === step.claimId
+        ? { ...claim, steps: [...claim.steps, { id: step.id, adapter: step.adapter, operation: step.operation, result: result.result, evidenceIds: [result.evidence.id], message: result.message }], result: undefined }
+        : claim);
+      const recalculated = claims.map((claim) => ({ ...claim, result: evaluateClaim(claim) as Required<ClaimExecution>['result'] })) as Array<Required<ClaimExecution>>;
+      request.status = 'SATISFIED';
+      const recalculatedCoverage = (current.snapshot.coverage ?? []).map((term) => term.stepIds.includes(step.id)
+        ? { ...term, evidenceEstablished: [...new Set([...term.evidenceEstablished, result.evidence.id])] }
+        : term);
+      const resolvedPlan = { ...current.plan, coverage: recalculatedCoverage };
+      const acceptanceLedger = buildAcceptanceTermLedger(current.input.milestone);
+      const acceptanceTerms = acceptanceLedger.terms;
+      const verdict = evaluateMilestone(recalculated, recalculatedCoverage, acceptanceTerms, acceptanceLedger.audit);
+      const provenance = this.provenance(current.input, resolvedPlan, verdict);
+      result.evidence.provenance = provenance;
+      freezeEvidence(result.evidence);
+      const snapshot = this.snapshot(current.input, resolvedPlan, recalculated, ledger, current.snapshot.evidenceRequests, recalculatedCoverage, provenance, acceptanceLedger);
+      snapshot.caseId = caseId;
+      return { ...current, version: current.version + 1, plan: resolvedPlan, snapshot, acceptanceLedger };
+    });
+
+    return updated.snapshot;
   }
 
   private adapter(step: VerificationPlanStep): Adapter { return step.adapter === 'github' ? this.deps.github : step.adapter === 'http' ? this.deps.http : step.adapter === 'base' ? this.deps.base : this.deps.npm; }
