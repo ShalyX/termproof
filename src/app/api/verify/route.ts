@@ -14,18 +14,13 @@ function response(requestId: string, body: unknown, status: number) {
   return NextResponse.json(body, { status, headers: { 'X-Request-Id': requestId } });
 }
 
-function clientScope(request: NextRequest): string {
-  const forwarded = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim();
-  const connecting = request.headers.get('cf-connecting-ip')?.trim();
-  return `verify:${forwarded || connecting || 'anonymous'}`;
-}
-
 export async function POST(request: NextRequest) {
   const requestId = createRequestId(request.headers.get('x-request-id'));
   const started = Date.now();
   try {
     const resumableService = getResumableService();
-    const limit = await resumableService.persistence.consumeRateLimit(clientScope(request), RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_MS);
+    const clientKey = request.headers.get('cf-connecting-ip') ?? 'anonymous';
+    const limit = await resumableService.persistence.consumeRateLimit(clientKey, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_MS);
     if (!limit.allowed) return response(requestId, { error: 'Too many verification requests', code: 'RATE_LIMITED' }, 429);
 
     const body = await request.json() as { mode?: unknown; caseId?: unknown; evidence?: unknown; milestone?: unknown; githubRepository?: unknown };
