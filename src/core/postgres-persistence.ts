@@ -102,12 +102,14 @@ export class PostgresPersistenceAdapter implements PersistenceAdapter {
             throw new PersistenceError('IDEMPOTENCY_CONFLICT', 'Idempotency key was already used with different evidence');
           }
           if (row.state === 'COMPLETED' && row.response_json) {
+            const response = row.response_json as { version?: number; snapshot?: PersistedVerificationCase['snapshot'] };
+            if (!response.snapshot) throw new PersistenceError('PERSISTENCE_UNAVAILABLE', 'Stored idempotent response is malformed');
             await client.query('COMMIT');
             return {
               ...current,
-              version: Number((row.response_json as { version?: number }).version ?? current.version),
-              snapshot: (row.response_json as { snapshot?: PersistedVerificationCase['snapshot'] }).snapshot ?? row.response_json,
-              plan: ((row.response_json as { snapshot?: PersistedVerificationCase['snapshot'] }).snapshot ?? row.response_json).plan,
+              version: Number(response.version ?? current.version),
+              snapshot: response.snapshot,
+              plan: response.snapshot.plan,
             };
           }
           throw new PersistenceError('RESUME_LOCKED', 'Resume already in progress');
@@ -197,33 +199,39 @@ export class PostgresPersistenceAdapter implements PersistenceAdapter {
     const auditHash = snapshot.provenance.acceptancePredicateAuditHash ?? hashEvidence(stableJson(acceptanceLedger.audit));
     const planHash = snapshot.provenance.planner.planHash || hashEvidence(stableJson(record.plan));
 
-    await client.query(
-      `insert into termproof.acceptance_ledgers
-        (id, case_id, version, ledger_hash, ledger_json, canonical_json)
-       values ($1, $2, $3, $4, $5::jsonb, $6)`,
-      [randomUUID(), caseId, version, acceptanceLedger.sourceHash, json(acceptanceLedger.terms), stableJson(acceptanceLedger.terms)],
-    );
-    await client.query(
-      `insert into termproof.source_predicate_audits
-        (id, case_id, version, audit_hash, audit_json, canonical_json)
-       values ($1, $2, $3, $4, $5::jsonb, $6)`,
-      [randomUUID(), caseId, version, auditHash, json(acceptanceLedger.audit), stableJson(acceptanceLedger.audit)],
-    );
-    await client.query(
-      `insert into termproof.plans
-        (id, case_id, version, plan_hash, plan_json, canonical_json, planner_provider, planner_model, planner_role, failover_reason, planner_version, planned_at, provenance_json)
-       values ($1, $2, $3, $4, $5::jsonb, $6, $7, $8, $9, $10, $11, $12, $13::jsonb)`,
-      [
-        randomUUID(), caseId, version, planHash, json(record.plan), stableJson(record.plan),
-        snapshot.provenance.planner.provider ?? snapshot.provenance.planner.kind ?? null,
-        snapshot.provenance.planner.model ?? null,
-        snapshot.provenance.planner.role ?? null,
-        snapshot.provenance.planner.failoverReason ?? null,
-        snapshot.provenance.planner.version ?? null,
-        snapshot.provenance.planner.timestamp ?? null,
-        json(snapshot.provenance),
-      ],
-    );
+    if (!previous) {
+      await client.query(
+        `insert into termproof.acceptance_ledgers
+          (id, case_id, version, ledger_hash, ledger_json, canonical_json)
+         values ($1, $2, $3, $4, $5::jsonb, $6)`,
+        [randomUUID(), caseId, version, acceptanceLedger.sourceHash, json(acceptanceLedger.terms), stableJson(acceptanceLedger.terms)],
+      );
+      await client.query(
+        `insert into termproof.source_predicate_audits
+          (id, case_id, version, audit_hash, audit_json, canonical_json)
+         values ($1, $2, $3, $4, $5::jsonb, $6)`,
+        [randomUUID(), caseId, version, auditHash, json(acceptanceLedger.audit), stableJson(acceptanceLedger.audit)],
+      );
+    }
+
+    const previousPlanHash = previous?.snapshot.provenance.planner.planHash ?? null;
+    if (!previous || previousPlanHash !== planHash) {
+      await client.query(
+        `insert into termproof.plans
+          (id, case_id, version, plan_hash, plan_json, canonical_json, planner_provider, planner_model, planner_role, failover_reason, planner_version, planned_at, provenance_json)
+         values ($1, $2, $3, $4, $5::jsonb, $6, $7, $8, $9, $10, $11, $12, $13::jsonb)`,
+        [
+          randomUUID(), caseId, version, planHash, json(record.plan), stableJson(record.plan),
+          snapshot.provenance.planner.provider ?? snapshot.provenance.planner.kind ?? null,
+          snapshot.provenance.planner.model ?? null,
+          snapshot.provenance.planner.role ?? null,
+          snapshot.provenance.planner.failoverReason ?? null,
+          snapshot.provenance.planner.version ?? null,
+          snapshot.provenance.planner.timestamp ?? null,
+          json(snapshot.provenance),
+        ],
+      );
+    }
 
     const previousEvidenceIds = new Set(previous?.snapshot.evidenceLedger.map((entry) => entry.evidence.id) ?? []);
     const newEvidence = snapshot.evidenceLedger
@@ -243,7 +251,7 @@ export class PostgresPersistenceAdapter implements PersistenceAdapter {
         `insert into termproof.source_observations
           (id, case_id, version, observation_id, request_fingerprint, observation_lineage, source, revision, raw_hash, observation_hash, observation_json, canonical_json, observed_at)
          values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb, $12, $13)
-         on conflict (case_id, observation_id) do nothing`,
+         on conflict do nothing`,
         [
           randomUUID(), caseId, version, observationId, evidence.requestFingerprint ?? null, observationId,
           evidence.source, evidence.revision, evidence.rawHash, observationHash, json(observationPayload), stableJson(observationPayload),
@@ -259,7 +267,7 @@ export class PostgresPersistenceAdapter implements PersistenceAdapter {
         `insert into termproof.evidence_receipts
           (id, case_id, version, evidence_id, claim_id, step_id, observation_id, source, revision, result, evidence_hash, extracted_facts, receipt_json, canonical_json, observed_at)
          values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::jsonb, $13::jsonb, $14, $15)
-         on conflict (case_id, evidence_id) do nothing`,
+         on conflict do nothing`,
         [
           randomUUID(), caseId, version, evidence.id, entry.claimId, entry.stepId, observationId,
           evidence.source, evidence.revision, evidence.result, evidence.rawHash, json(evidence.extractedFacts), json(evidence), stableJson(evidence), evidence.observedAt,
