@@ -1,0 +1,36 @@
+package_lock=1
+npm_ci=99
+test_core=99
+lint=99
+vercel_build=99
+
+--- package_lock failure tail ---
+npm error code ERESOLVE
+npm error ERESOLVE could not resolve
+npm error
+npm error While resolving: nitro@3.0.0
+npm error Found: vite@8.0.13
+npm error node_modules/vite
+npm error   dev vite@"8.0.13" from the root project
+npm error   peer vite@"^6.1.0 || ^7.0.0 || ^8.0.0" from @cloudflare/vite-plugin@1.37.1
+npm error   node_modules/@cloudflare/vite-plugin
+npm error     dev @cloudflare/vite-plugin@"1.37.1" from the root project
+npm error   5 more (@vitejs/plugin-react, @vitejs/plugin-rsc, vinext, ...)
+npm error
+npm error Could not resolve dependency:
+npm error peerOptional vite@"^7" from nitro@3.0.0
+npm error node_modules/nitro
+npm error   dev nitro@"^3.0.0-beta.5" from the root project
+npm error
+npm error Conflicting peer dependency: vite@7.3.6
+npm error node_modules/vite
+npm error   peerOptional vite@"^7" from nitro@3.0.0
+npm error   node_modules/nitro
+npm error     dev nitro@"^3.0.0-beta.5" from the root project
+npm error
+npm error Fix the upstream dependency conflict, or retry this command with --force or --legacy-peer-deps to accept an incorrect (and potentially broken) dependency resolution.
+npm error
+npm error
+npm error For a full report see:
+npm error /home/runner/work/termproof/termproof/.sites-runtime/npm-cache/_logs/2026-08-19T20_31_51_381Z-eresolve-report.txt
+npm error A complete log of this run can be found in: /home/runner/work/termproof/termproof/.sites-runtime/npm-cache/_logs/2026-08-19T20_31_51_381Z-debug-0.log
