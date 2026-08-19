@@ -1,3 +1,4 @@
+# rerun after restoring executable script modes
 name: Validate v12.4 recovery branch
 
 on:
