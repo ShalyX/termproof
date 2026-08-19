@@ -1,4 +1,4 @@
-validated_commit=4f783172c671ed5cb59e025ea899d27ffe785398
+validated_commit=be52f481fbc93d21588cafd5be0a43b2ad042e83
 package_lock=0
 npm_ci=0
 grant-milestone-verifier@0.1.0 /home/runner/work/termproof/termproof
@@ -8,3 +8,4 @@ grant-milestone-verifier@0.1.0 /home/runner/work/termproof/termproof
 test_core=0
 lint=0
 vercel_build=0
+prod_audit_high=0
