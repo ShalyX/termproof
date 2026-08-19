@@ -1,0 +1,67 @@
+name: v12.4 production proof
+
+on:
+  push:
+    branches:
+      - ops/v124-proof
+
+jobs:
+  start-case:
+    runs-on: ubuntu-latest
+    outputs:
+      case_id: ${{ steps.start.outputs.case_id }}
+    steps:
+      - name: Start durable verification case
+        id: start
+        shell: bash
+        run: |
+          set -euo pipefail
+          BODY='{"mode":"start","milestone":"Termproof has a public implementation repository.","githubRepository":"https://github.com/ShalyX/termproof"}'
+          STATUS=$(curl -sS -o response.json -w '%{http_code}' \
+            -H 'content-type: application/json' \
+            -H 'x-request-id: gh-v124-proof-start' \
+            --data-binary "$BODY" \
+            https://termproof-mauve.vercel.app/api/verify)
+          echo "HTTP $STATUS"
+          cat response.json
+          test "$STATUS" = "200"
+          CASE_ID=$(python - <<'PY'
+          import json
+          with open('response.json') as f:
+              data = json.load(f)
+          value = data.get('caseId')
+          if not value:
+              raise SystemExit('caseId missing')
+          print(value)
+          PY
+          )
+          echo "case_id=$CASE_ID" >> "$GITHUB_OUTPUT"
+
+  get-case:
+    needs: start-case
+    runs-on: ubuntu-latest
+    steps:
+      - name: Read case back through a separate runner
+        shell: bash
+        env:
+          CASE_ID: ${{ needs.start-case.outputs.case_id }}
+        run: |
+          set -euo pipefail
+          BODY=$(printf '{"mode":"get","caseId":"%s"}' "$CASE_ID")
+          STATUS=$(curl -sS -o response.json -w '%{http_code}' \
+            -H 'content-type: application/json' \
+            -H 'x-request-id: gh-v124-proof-get' \
+            --data-binary "$BODY" \
+            https://termproof-mauve.vercel.app/api/verify)
+          echo "HTTP $STATUS"
+          cat response.json
+          test "$STATUS" = "200"
+          python - <<'PY'
+          import json, os
+          with open('response.json') as f:
+              data = json.load(f)
+          expected = os.environ['CASE_ID']
+          if data.get('caseId') != expected:
+              raise SystemExit('caseId mismatch')
+          print('cross-runner case readback verified')
+          PY
