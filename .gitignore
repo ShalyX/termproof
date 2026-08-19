@@ -7,6 +7,8 @@ dist
 .vite
 .wrangler
 .sites-runtime
+.vercel
+.nitro
 drizzle
 *.tsbuildinfo
 *.log
