@@ -44,10 +44,12 @@ jobs:
 
           if [ "$NPM_CI" -eq 0 ]; then
             npm ls nitro pg --depth=0 >> "$RESULT" 2>&1
-            npm run test:core > /tmp/test.log 2>&1
+            npm test > /tmp/test.log 2>&1
             TESTS=$?
             npm run lint > /tmp/lint.log 2>&1
             LINT=$?
+            npm run validate:artifact > /tmp/artifact.log 2>&1
+            ARTIFACT=$?
             npm run vercel-build > /tmp/build.log 2>&1
             BUILD=$?
             npm audit --omit=dev --audit-level=high > /tmp/audit.log 2>&1
@@ -55,20 +57,22 @@ jobs:
           else
             TESTS=99
             LINT=99
+            ARTIFACT=99
             BUILD=99
             AUDIT=99
           fi
-          echo "test_core=$TESTS" >> "$RESULT"
+          echo "test_full=$TESTS" >> "$RESULT"
           echo "lint=$LINT" >> "$RESULT"
+          echo "artifact=$ARTIFACT" >> "$RESULT"
           echo "vercel_build=$BUILD" >> "$RESULT"
           echo "prod_audit_high=$AUDIT" >> "$RESULT"
 
-          for pair in "package_lock:$LOCK:/tmp/lock.log" "npm_ci:$NPM_CI:/tmp/ci.log" "test_core:$TESTS:/tmp/test.log" "lint:$LINT:/tmp/lint.log" "vercel_build:$BUILD:/tmp/build.log" "prod_audit_high:$AUDIT:/tmp/audit.log"; do
+          for pair in "package_lock:$LOCK:/tmp/lock.log" "npm_ci:$NPM_CI:/tmp/ci.log" "test_full:$TESTS:/tmp/test.log" "lint:$LINT:/tmp/lint.log" "artifact:$ARTIFACT:/tmp/artifact.log" "vercel_build:$BUILD:/tmp/build.log" "prod_audit_high:$AUDIT:/tmp/audit.log"; do
             IFS=: read -r NAME STATUS LOG <<< "$pair"
             if [ "$STATUS" != "0" ] && [ "$STATUS" != "99" ] && [ -f "$LOG" ]; then
               echo "" >> "$RESULT"
               echo "--- $NAME failure tail ---" >> "$RESULT"
-              tail -n 100 "$LOG" >> "$RESULT"
+              tail -n 120 "$LOG" >> "$RESULT"
             fi
           done
 
@@ -80,6 +84,6 @@ jobs:
             git push origin HEAD:v12.4-durable-runtime-sync
           fi
 
-          if [ "$LOCK" -ne 0 ] || [ "$NPM_CI" -ne 0 ] || [ "$TESTS" -ne 0 ] || [ "$LINT" -ne 0 ] || [ "$BUILD" -ne 0 ] || [ "$AUDIT" -ne 0 ]; then
+          if [ "$LOCK" -ne 0 ] || [ "$NPM_CI" -ne 0 ] || [ "$TESTS" -ne 0 ] || [ "$LINT" -ne 0 ] || [ "$ARTIFACT" -ne 0 ] || [ "$BUILD" -ne 0 ] || [ "$AUDIT" -ne 0 ]; then
             exit 1
           fi
