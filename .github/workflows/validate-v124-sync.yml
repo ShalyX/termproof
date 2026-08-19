@@ -50,16 +50,20 @@ jobs:
             LINT=$?
             npm run vercel-build > /tmp/build.log 2>&1
             BUILD=$?
+            npm audit --omit=dev --audit-level=high > /tmp/audit.log 2>&1
+            AUDIT=$?
           else
             TESTS=99
             LINT=99
             BUILD=99
+            AUDIT=99
           fi
           echo "test_core=$TESTS" >> "$RESULT"
           echo "lint=$LINT" >> "$RESULT"
           echo "vercel_build=$BUILD" >> "$RESULT"
+          echo "prod_audit_high=$AUDIT" >> "$RESULT"
 
-          for pair in "package_lock:$LOCK:/tmp/lock.log" "npm_ci:$NPM_CI:/tmp/ci.log" "test_core:$TESTS:/tmp/test.log" "lint:$LINT:/tmp/lint.log" "vercel_build:$BUILD:/tmp/build.log"; do
+          for pair in "package_lock:$LOCK:/tmp/lock.log" "npm_ci:$NPM_CI:/tmp/ci.log" "test_core:$TESTS:/tmp/test.log" "lint:$LINT:/tmp/lint.log" "vercel_build:$BUILD:/tmp/build.log" "prod_audit_high:$AUDIT:/tmp/audit.log"; do
             IFS=: read -r NAME STATUS LOG <<< "$pair"
             if [ "$STATUS" != "0" ] && [ "$STATUS" != "99" ] && [ -f "$LOG" ]; then
               echo "" >> "$RESULT"
@@ -76,6 +80,6 @@ jobs:
             git push origin HEAD:v12.4-durable-runtime-sync
           fi
 
-          if [ "$LOCK" -ne 0 ] || [ "$NPM_CI" -ne 0 ] || [ "$TESTS" -ne 0 ] || [ "$LINT" -ne 0 ] || [ "$BUILD" -ne 0 ]; then
+          if [ "$LOCK" -ne 0 ] || [ "$NPM_CI" -ne 0 ] || [ "$TESTS" -ne 0 ] || [ "$LINT" -ne 0 ] || [ "$BUILD" -ne 0 ] || [ "$AUDIT" -ne 0 ]; then
             exit 1
           fi
