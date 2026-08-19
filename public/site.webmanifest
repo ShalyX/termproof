@@ -1,0 +1,17 @@
+{
+  "name": "Termproof",
+  "short_name": "Termproof",
+  "description": "Proof before release. Evidence-backed verification for technical milestone terms.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F5F1E8",
+  "theme_color": "#171715",
+  "icons": [
+    {
+      "src": "/brand/termproof-app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
