@@ -2,7 +2,14 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { MilestonePlanner } from '../src/agent/planner.ts';
 import { normalizeAcceptanceTerms } from '../src/core/coverage.ts';
-import { MemoryPersistenceAdapter, PersistenceError } from '../src/core/persistence.ts';
+import {
+  MemoryPersistenceAdapter,
+  PersistenceError,
+  type PersistedVerificationCase,
+  type PersistenceAdapter,
+  type PersistenceRequestContext,
+  type RateLimitDecision,
+} from '../src/core/persistence.ts';
 import { ResumableVerificationService } from '../src/core/resumable.ts';
 import type { AdapterExecution, EvidenceRecord, VerificationPlan, VerificationPlanStep } from '../src/core/types.ts';
 
@@ -40,7 +47,7 @@ function execution(step: VerificationPlanStep, result: 'PASS' | 'FAIL' | 'INCONC
   return { result, message: result === 'PASS' ? 'verified' : 'not verified', evidence: evidence(step, result) };
 }
 
-function service(persistence: MemoryPersistenceAdapter, httpCalls: string[] = []): ResumableVerificationService {
+function service(persistence: PersistenceAdapter, httpCalls: string[] = []): ResumableVerificationService {
   return new ResumableVerificationService({
     planner: planner(),
     persistence,
@@ -49,6 +56,36 @@ function service(persistence: MemoryPersistenceAdapter, httpCalls: string[] = []
     base: { execute: async (step) => execution(step) },
     npm: { execute: async (step) => execution(step) },
   });
+}
+
+class MutationGuardPersistenceAdapter implements PersistenceAdapter {
+  readonly kind = 'memory' as const;
+  private readonly inner = new MemoryPersistenceAdapter();
+
+  createCase(record: PersistedVerificationCase, context?: PersistenceRequestContext): Promise<void> {
+    return this.inner.createCase(record, context);
+  }
+
+  getCase(caseId: string): Promise<PersistedVerificationCase> {
+    return this.inner.getCase(caseId);
+  }
+
+  mutateCase(
+    caseId: string,
+    context: PersistenceRequestContext,
+    mutate: (current: PersistedVerificationCase) => Promise<PersistedVerificationCase>,
+  ): Promise<PersistedVerificationCase> {
+    return this.inner.mutateCase(caseId, context, async (current) => {
+      const before = structuredClone(current);
+      const updated = await mutate(current);
+      assert.deepEqual(current, before, 'resume mutator changed the persisted pre-mutation snapshot');
+      return updated;
+    });
+  }
+
+  consumeRateLimit(scopeKey: string, max: number, windowMs: number, now?: Date): Promise<RateLimitDecision> {
+    return this.inner.consumeRateLimit(scopeKey, max, windowMs, now);
+  }
 }
 
 test('case state survives service instance replacement when persistence is shared', async () => {
@@ -80,8 +117,24 @@ test('resume advances durable version exactly once and idempotent replay does no
   assert.equal(persistedAfterFirst.version, 1);
   assert.equal(persistedAfterReplay.version, 1);
   assert.equal(resumed.verdict, 'VERIFIED');
+  assert.equal(resumed.evidenceRequests[0].status, 'SATISFIED');
   assert.deepEqual(replayed, resumed);
   assert.deepEqual(httpCalls, ['https://example.com/']);
+});
+
+test('resume mutator preserves the pre-resume snapshot for transactional diffing', async () => {
+  const persistence = new MutationGuardPersistenceAdapter();
+  const verifier = service(persistence);
+  const started = await verifier.start({ milestone: 'Repository exists', githubRepository: 'https://github.com/acme/project' });
+
+  const resumed = await verifier.supplyEvidence(
+    started.caseId,
+    { kind: 'http_source', claimId: 'claim-http', stepId: 'step-http', url: 'https://example.com/' },
+    { requestId: 'resume-request-immutable', idempotencyKey: 'resume-key-immutable' },
+  );
+
+  assert.equal(started.evidenceRequests[0].status, 'OPEN');
+  assert.equal(resumed.evidenceRequests[0].status, 'SATISFIED');
 });
 
 test('same idempotency key with different evidence is rejected', async () => {
