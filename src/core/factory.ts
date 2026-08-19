@@ -1,4 +1,5 @@
 import { ProviderPlanner } from '../agent/provider-planner.ts';
+import { ResumablePlanner } from '../agent/resumable-planner.ts';
 import type { MilestonePlanner } from '../agent/planner.ts';
 import { BaseAdapter } from '../adapters/base.ts';
 import { GitHubAdapter } from '../adapters/github.ts';
@@ -19,7 +20,7 @@ export function createOrchestrator(): VerificationOrchestrator {
 }
 
 export function createResumableVerificationService(persistence?: PersistenceAdapter): ResumableVerificationService {
-  const planner = createProductionPlanner();
+  const planner = new ResumablePlanner(createProductionPlanner());
   return new ResumableVerificationService({ planner, github: new GitHubAdapter(), http: new HttpAdapter(), base: new BaseAdapter(), npm: new NpmAdapter(), persistence });
 }
 
