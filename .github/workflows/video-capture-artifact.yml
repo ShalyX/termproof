@@ -1,0 +1,25 @@
+name: Video capture source artifact
+
+on:
+  push:
+    branches:
+      - ops/video-capture
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Package exact main source
+        run: |
+          tar --exclude=.git -czf termproof-source.tar.gz .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: termproof-source
+          path: termproof-source.tar.gz
+          retention-days: 1
