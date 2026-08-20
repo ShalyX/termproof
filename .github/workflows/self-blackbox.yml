@@ -23,26 +23,36 @@ jobs:
 
           API='https://termproof-mauve.vercel.app/api/verify'
           REPO='https://github.com/ShalyX/termproof'
-          MILESTONE='Termproof has a public implementation repository containing package.json, src/agent/provider-planner.ts, src/core/policy.ts, src/core/postgres-persistence.ts, and src/app/api/verify/route.ts. Its production website at https://termproof-mauve.vercel.app returns HTTP 200. Its production verification API at https://termproof-mauve.vercel.app/api/verify rejects GET with HTTP 405. Termproof is a working AI agent that takes a technical milestone and project evidence source, uses an AI planner to produce bounded evidence checks, executes supported live evidence adapters, and returns a deterministic milestone disposition.'
+          TECHNICAL='Termproof has a public implementation repository containing package.json, src/agent/provider-planner.ts, src/core/policy.ts, src/core/postgres-persistence.ts, and src/app/api/verify/route.ts. Its production website at https://termproof-mauve.vercel.app returns HTTP 200. Its production verification API at https://termproof-mauve.vercel.app/api/verify returns HTTP 405 to a GET request.'
+          BEHAVIORAL='Termproof is a working AI agent that takes a technical milestone and project evidence source, uses an AI planner to produce bounded evidence checks, executes supported live evidence adapters, and returns a deterministic milestone disposition.'
 
-          jq -n \
-            --arg mode start \
-            --arg milestone "$MILESTONE" \
-            --arg githubRepository "$REPO" \
-            '{mode:$mode,milestone:$milestone,githubRepository:$githubRepository}' \
-            > proof/request.json
+          run_one() {
+            local name="$1"
+            local milestone="$2"
+            jq -n \
+              --arg mode start \
+              --arg milestone "$milestone" \
+              --arg githubRepository "$REPO" \
+              '{mode:$mode,milestone:$milestone,githubRepository:$githubRepository}' \
+              > "proof/${name}-request.json"
 
-          STATUS=$(curl -sS -o proof/response.raw.json -w '%{http_code}' \
-            -H 'content-type: application/json' \
-            -H 'x-request-id: termproof-self-blackbox-20260820' \
-            --data-binary @proof/request.json \
-            "$API")
+            local status
+            status=$(curl -sS -o "proof/${name}-response.raw.json" -w '%{http_code}' \
+              -H 'content-type: application/json' \
+              -H "x-request-id: termproof-self-blackbox-${name}-20260820" \
+              --data-binary @"proof/${name}-request.json" \
+              "$API")
 
-          printf '%s\n' "$STATUS" > proof/http-status.txt
-          jq . proof/response.raw.json > proof/response.json
-          jq '{caseId,version,verdict,releaseRecommendation,coverageSummary,acceptanceTerms,evidenceRequests,claims,planner}' proof/response.json > proof/summary.json
-          cat proof/summary.json
-          test "$STATUS" = '200'
+            printf '%s\n' "$status" > "proof/${name}-http-status.txt"
+            jq . "proof/${name}-response.raw.json" > "proof/${name}-response.json"
+            jq '{caseId,version,verdict,releaseRecommendation,coverageSummary,acceptanceTerms,evidenceRequests,claims,planner,error,code}' \
+              "proof/${name}-response.json" > "proof/${name}-summary.json"
+            echo "===== ${name} / HTTP ${status} ====="
+            cat "proof/${name}-summary.json"
+          }
+
+          run_one technical "$TECHNICAL"
+          run_one behavioral "$BEHAVIORAL"
 
       - uses: actions/upload-artifact@v4
         if: always()
