@@ -73,6 +73,8 @@ X: `https://x.com/termproof`
 
 Telegram: `https://t.me/term_proof`
 
+Registration: confirmed by Orion organizer email on August 20, 2026; wallet confirmed for the Builder Hackathon.
+
 Current Git-backed production commit: `cb2d4e26bcb3b7d6edf1476270f3874a4a0eedba`
 
 Durable production proof case: `229d0fd0-4553-49d9-baaf-024f6c520fb0`
@@ -103,7 +105,6 @@ Termproof is a proof-before-release agent for technical grants and milestone pro
 
 Proof before release: an autonomous agent that converts technical milestone terms into bounded live evidence checks and deterministic funding-release recommendations.
 
-## Final submission fields still needed from the builder
+## Final submission field still needed from the builder
 
-- organizer registration confirmation
 - final submission/ignition transaction evidence
