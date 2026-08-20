@@ -12,9 +12,9 @@ Evidence-based status for the current production checkpoint. No item is marked c
 | X profile | COMPLETE | User-supplied official project profile: `https://x.com/termproof`. |
 | Discord or Telegram | COMPLETE | Public Telegram community: `https://t.me/term_proof`. User also supplied invite URL `https://t.me/+Hwqdf9cKBUozY2Q8`; use the public username URL in submission fields. |
 | Demo link | COMPLETE | User-supplied final judge-facing YouTube demo: `https://youtu.be/2iZw2vNTgE4`. |
-| Orion registration | UNVERIFIED | Prior project notes indicate registration work was done, but there is no current repository/email evidence available here. Confirm in the organizer UI before submission. |
+| Orion registration | COMPLETE | Organizer confirmation email from `founders@orionagents.org` on August 20, 2026 states registration and wallet are confirmed for the Orion Builder Hackathon. |
 | Ignition/submission transaction | PENDING | Complete only in the official submission UI; retain the transaction/link as evidence after submission. |
-| Deadline | TRACKED | Project field map tracks September 2, 2026 at 23:59 UTC. Reconfirm in the organizer UI immediately before final submission. |
+| Deadline | TRACKED | Organizer confirmation email states submissions close September 2, 2026 at 23:59 UTC. Reconfirm in the organizer UI immediately before final submission. |
 
 ## Production proof checkpoint
 
@@ -35,7 +35,6 @@ The live production proof created case `229d0fd0-4553-49d9-baaf-024f6c520fb0` an
 
 ## Remaining human-facing submission blockers
 
-The product, public technical evidence, identities, and final demo are ready. The remaining blockers are organizer actions:
+The product, public technical evidence, identities, demo, and organizer registration are ready. One organizer action remains:
 
-1. organizer registration confirmation; and
-2. final organizer submission/ignition transaction.
+1. final organizer submission/ignition transaction.
