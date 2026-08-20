@@ -10,7 +10,7 @@ Evidence-based status for the current production checkpoint. No item is marked c
 | Durable runtime | COMPLETE | Production cases, evidence requests, idempotency, transitions, receipts, observations, and shared rate-limit buckets are persisted in the dedicated Termproof PostgreSQL schema. |
 | Release gate | COMPLETE | Clean install, full test suite, lint, artifact validation, Vercel build, and production high-severity audit are enforced before release. |
 | X profile | COMPLETE | User-supplied official project profile: `https://x.com/termproof`. |
-| Discord or Telegram | PENDING | No project/community Discord or Telegram URL has been supplied yet. |
+| Discord or Telegram | COMPLETE | Public Telegram community: `https://t.me/term_proof`. User also supplied invite URL `https://t.me/+Hwqdf9cKBUozY2Q8`; use the public username URL in submission fields. |
 | Demo link | PENDING | A final public judge-facing demo video URL has not yet been supplied. |
 | Orion registration | UNVERIFIED | Prior project notes indicate registration work was done, but there is no current repository/email evidence available here. Confirm in the organizer UI before submission. |
 | Ignition/submission transaction | PENDING | Complete only in the official submission UI; retain the transaction/link as evidence after submission. |
@@ -35,9 +35,8 @@ The live production proof created case `229d0fd0-4553-49d9-baaf-024f6c520fb0` an
 
 ## Remaining human-facing submission blockers
 
-The product and public technical evidence are ready. The remaining blockers are submission identities/media rather than product engineering:
+The product and public technical evidence are ready. The remaining blockers are submission media/organizer actions rather than product engineering:
 
-1. final Discord or Telegram URL;
-2. final public demo video URL;
-3. organizer registration confirmation; and
-4. final organizer submission/ignition transaction.
+1. final public demo video URL;
+2. organizer registration confirmation; and
+3. final organizer submission/ignition transaction.
