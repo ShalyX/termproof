@@ -33,6 +33,8 @@ GitHub, HTTP, EVM, and npm adapters establish observations. Deterministic policy
 
 ## Strongest judge demo
 
+Final demo: `https://youtu.be/2iZw2vNTgE4`
+
 ### Act 1 — exact promise
 
 Give Termproof a real technical milestone containing multiple objective clauses across GitHub and HTTPS.
@@ -64,6 +66,8 @@ Production black-box proof has already established the complete sequence:
 Website: `https://termproof-mauve.vercel.app`
 
 Repository: `https://github.com/ShalyX/termproof`
+
+Demo: `https://youtu.be/2iZw2vNTgE4`
 
 X: `https://x.com/termproof`
 
@@ -101,6 +105,5 @@ Proof before release: an autonomous agent that converts technical milestone term
 
 ## Final submission fields still needed from the builder
 
-- final public demo video URL
 - organizer registration confirmation
 - final submission/ignition transaction evidence
