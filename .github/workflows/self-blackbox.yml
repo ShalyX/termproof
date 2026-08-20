@@ -15,7 +15,7 @@ jobs:
   self-blackbox:
     runs-on: ubuntu-latest
     steps:
-      - name: Run live Termproof vs Termproof verification
+      - name: Run atomic live Termproof vs Termproof verification suite
         shell: bash
         run: |
           set -euo pipefail
@@ -23,8 +23,6 @@ jobs:
 
           API='https://termproof-mauve.vercel.app/api/verify'
           REPO='https://github.com/ShalyX/termproof'
-          TECHNICAL='Termproof has a public implementation repository containing package.json, src/agent/provider-planner.ts, src/core/policy.ts, src/core/postgres-persistence.ts, and src/app/api/verify/route.ts. Its production website at https://termproof-mauve.vercel.app returns HTTP 200. Its production verification API at https://termproof-mauve.vercel.app/api/verify returns HTTP 405 to a GET request.'
-          BEHAVIORAL='Termproof is a working AI agent that takes a technical milestone and project evidence source, uses an AI planner to produce bounded evidence checks, executes supported live evidence adapters, and returns a deterministic milestone disposition.'
 
           run_one() {
             local name="$1"
@@ -45,14 +43,32 @@ jobs:
 
             printf '%s\n' "$status" > "proof/${name}-http-status.txt"
             jq . "proof/${name}-response.raw.json" > "proof/${name}-response.json"
-            jq '{caseId,version,verdict,releaseRecommendation,coverageSummary,acceptanceTerms,evidenceRequests,claims,planner,error,code}' \
+            jq '{caseId,milestone,verdict,claims,evidenceRequests,plan,coverage,provenance,error,code}' \
               "proof/${name}-response.json" > "proof/${name}-summary.json"
             echo "===== ${name} / HTTP ${status} ====="
-            cat "proof/${name}-summary.json"
+            jq '{caseId,verdict,error,code,coverage: [.coverage[]? | {text,disposition,reason,selectedCapability,evidenceEstablished}]}' "proof/${name}-response.json"
           }
 
-          run_one technical "$TECHNICAL"
-          run_one behavioral "$BEHAVIORAL"
+          run_one repo_exists 'Termproof has a public implementation repository.'
+          run_one planner_file 'The public implementation repository contains src/agent/provider-planner.ts.'
+          run_one policy_file 'The public implementation repository contains src/core/policy.ts.'
+          run_one persistence_file 'The public implementation repository contains src/core/postgres-persistence.ts.'
+          run_one api_route_file 'The public implementation repository contains src/app/api/verify/route.ts.'
+          run_one website_200 'The production website at https://termproof-mauve.vercel.app returns HTTP 200.'
+          run_one api_get_405 'The production verification API at https://termproof-mauve.vercel.app/api/verify returns HTTP 405 to a GET request.'
+          run_one behavioral 'Termproof is a working AI agent that takes a technical milestone and project evidence source, uses an AI planner to produce bounded evidence checks, executes supported live evidence adapters, and returns a deterministic milestone disposition.'
+
+          jq -n \
+            --slurpfile repo proof/repo_exists-response.json \
+            --slurpfile planner proof/planner_file-response.json \
+            --slurpfile policy proof/policy_file-response.json \
+            --slurpfile persistence proof/persistence_file-response.json \
+            --slurpfile route proof/api_route_file-response.json \
+            --slurpfile website proof/website_200-response.json \
+            --slurpfile api proof/api_get_405-response.json \
+            --slurpfile behavioral proof/behavioral-response.json \
+            '{repo:$repo[0],planner_file:$planner[0],policy_file:$policy[0],persistence_file:$persistence[0],api_route_file:$route[0],website_200:$website[0],api_get_405:$api[0],behavioral:$behavioral[0]}' \
+            > proof/all-results.json
 
       - uses: actions/upload-artifact@v4
         if: always()
