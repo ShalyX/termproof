@@ -20,9 +20,9 @@ jobs:
           ref: main
       - name: Package exact main source
         run: |
-          tar --exclude=.git -czf termproof-source.tar.gz .
+          tar --exclude=.git -czf "$RUNNER_TEMP/termproof-source.tar.gz" .
       - uses: actions/upload-artifact@v4
         with:
           name: termproof-source
-          path: termproof-source.tar.gz
+          path: ${{ runner.temp }}/termproof-source.tar.gz
           retention-days: 1
