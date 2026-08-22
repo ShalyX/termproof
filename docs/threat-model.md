@@ -24,7 +24,13 @@ Timeouts, malformed payloads, redirect refusal, oversized responses, rate limits
 
 ### Evidence tampering and replay
 
-Evidence is canonicalized and hashed. Provenance is attached before records are deeply frozen. Resume validates the open claim/step and rejects unsupported fields, wrong adapters, closed requests, and concurrent resumes.
+Evidence is canonicalized and hashed. Provenance is attached before records are deeply frozen. Resume validates the open claim/step and rejects unsupported fields, wrong adapters, closed requests, and concurrent resumes. Mutation idempotency prevents the same logical evidence mutation from advancing a case twice.
+
+### Case access boundary
+
+The current hackathon deployment does not implement user accounts or per-tenant ownership checks. A resumable `caseId` is therefore a high-entropy bearer capability: possession of the ID is sufficient to read the case and to submit bounded evidence for an open request.
+
+This is acceptable only for the current public-evidence hackathon surface. It is not a confidentiality boundary. Case IDs must not be published or embedded in sensitive workflows, and confidential/private evidence must not be supplied. Authenticated ownership or an equivalent tenant authorization layer is required before private or multi-tenant production use.
 
 ### Arbitrary execution
 
@@ -40,3 +46,4 @@ Gemini, DeepSeek, and GitHub credentials are server-side environment variables. 
 - A GitHub license check proves the detected repository license, not legal compliance of all dependencies.
 - Contract bytecode proves deployment on the configured network, not safety or functional correctness.
 - Subjective acceptance criteria require an explicit deterministic test and otherwise remain unresolved.
+- Resumable case access is capability-based rather than account-authenticated; leaked case IDs can expose case state and permit bounded evidence submission for an open request.
