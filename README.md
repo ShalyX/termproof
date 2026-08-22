@@ -4,13 +4,23 @@
 
 **Terms, tested.** Termproof turns a technical milestone promise into bounded evidence checks and a deterministic milestone disposition. Proof before release.
 
-**Live production:** `https://termproof-mauve.vercel.app`
+**Live production:** `https://termproof-mauve.vercel.app`  
+**Judge demo:** `https://youtu.be/2iZw2vNTgE4`  
+**Production runtime checkpoint:** Vercel deployment `dpl_8bnBtrx1bhWNpC2pbEgxfZMwCF7u` from Git commit `cb2d4e26bcb3b7d6edf1476270f3874a4a0eedba` — see [`docs/deployment-proof.md`](docs/deployment-proof.md).
 
 It recommends `VERIFIED`, `FAILED`, or `NEEDS_EVIDENCE`. It does not release funds, move assets, or approve a grant on its own.
 
+## The failure Termproof is built to prevent
+
+A verifier should not turn a strong acceptance term into an easier proxy just because that proxy is convenient to check.
+
+A file existing does not prove runtime behavior. A transaction hash existing does not prove receipt success. A sponsor or chain name does not prove protocol state. Termproof normalizes each acceptance term into a proof obligation and requires an evidence capability strong enough to establish that obligation. If the available capability is weaker, the term stays unresolved instead of being silently converted into a pass.
+
+That is the core product boundary: **strong proof obligations cannot be weakened into proxies.**
+
 ## How it works
 
-`promise → constrained plan → adapter observation → extracted facts → evidence hash → deterministic claim result → milestone disposition`
+`promise → constrained plan → proof obligation → adapter observation → extracted facts → evidence hash → deterministic claim result → milestone disposition`
 
 The language model may propose only supported checks. It cannot assign claim results or the milestone disposition. Policy code evaluates adapter results. Uncertain infrastructure conditions become `INCONCLUSIVE`, which produces `NEEDS_EVIDENCE` for required claims.
 
@@ -44,6 +54,8 @@ npm run validate:artifact
 npm audit --omit=dev --audit-level=high
 ```
 
+The release gate runs on Linux. `.gitattributes` pins shell scripts and project text to LF so a Windows checkout does not rewrite executable scripts to CRLF. On Windows, run the shell-backed commands from WSL or Git Bash.
+
 The production checkpoint includes the core/adversarial suite, provider failover tests, persistence/idempotency tests, and rendered-interface checks. The production-only high-severity audit gate is clean; development/build tooling posture is documented in [`docs/security.md`](docs/security.md).
 
 ## Demo scenario
@@ -62,6 +74,10 @@ A production black-box lifecycle has exercised:
 
 The dedicated PostgreSQL runtime recorded the exact `0 → 1` case transition, `OPEN → SATISFIED` evidence request, completed idempotency record, source observations, evidence receipts, and final durable readback.
 
+## Public-case access model
+
+The current hackathon API has no user-account layer. Resumable case IDs act as high-entropy bearer capabilities: anyone who obtains a case ID can read that case and may supply evidence for an open request through the bounded resume path. Do not place confidential evidence in a Termproof case. Authenticated tenant ownership is required before private or multi-tenant production use.
+
 ## Limitations
 
 - The verifier recommends disposition; it does not release funds or perform grant settlement.
@@ -69,7 +85,8 @@ The dedicated PostgreSQL runtime recorded the exact `0 → 1` case transition, `
 - Subjective criteria cannot be objectively verified without an explicit deterministic test.
 - Public provider outages, rate limits, malformed responses, and stale or unavailable infrastructure can require additional evidence.
 - Repository and package content is data only. No third-party repository or npm package is cloned, installed, imported, or executed.
+- Current resumable case access is capability-based rather than account-authenticated; case IDs must be treated as bearer secrets.
 
-See [`docs/architecture.md`](docs/architecture.md), [`docs/evidence-provenance.md`](docs/evidence-provenance.md), [`docs/threat-model.md`](docs/threat-model.md), [`docs/security.md`](docs/security.md), [`docs/orion-submission-pack.md`](docs/orion-submission-pack.md), and [`docs/orion-submission-readiness.md`](docs/orion-submission-readiness.md).
+See [`docs/architecture.md`](docs/architecture.md), [`docs/evidence-provenance.md`](docs/evidence-provenance.md), [`docs/threat-model.md`](docs/threat-model.md), [`docs/security.md`](docs/security.md), [`docs/deployment-proof.md`](docs/deployment-proof.md), [`docs/orion-submission-pack.md`](docs/orion-submission-pack.md), and [`docs/orion-submission-readiness.md`](docs/orion-submission-readiness.md).
 
 Brand assets and production tokens are documented in [`docs/brand.md`](docs/brand.md). Historical package, verifier, API, and deployment identifiers retain the original `grant-milestone-verifier` name so cosmetic branding does not alter provenance or runtime contracts.
